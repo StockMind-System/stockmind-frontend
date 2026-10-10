@@ -5,7 +5,7 @@ import { environment } from '../../../environments/environment';
 import { User, UserRole } from '../models/user.model';
 import { StorageService } from './storage.service';
 
-interface AuthSession { accessToken: string; user: User; }
+interface AuthSession { accessToken: string; expiresAtUtc: string; user: User; }
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
