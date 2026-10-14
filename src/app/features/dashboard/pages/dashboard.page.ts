@@ -1,5 +1,8 @@
-import { ChangeDetectionStrategy, Component } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { finalize, forkJoin } from 'rxjs';
+import { OperationsApiService, Product, ReplenishmentAlert, ReportSummary, Sale } from '../../../core/services/operations-api.service';
+import { AuthService } from '../../../core/services/auth.service';
 import { PageHeaderComponent } from '../../../shared/components/page-header/page-header.component';
 import { MetricCardComponent } from '../../../shared/components/metric-card/metric-card.component';
 
@@ -10,84 +13,143 @@ import { MetricCardComponent } from '../../../shared/components/metric-card/metr
   template: `
     <section class="page dashboard">
       <div class="heading-block">
-        <p class="eyebrow">Inicio / StockMind</p>
-        <app-page-header title="Buen día, Dayana" subtitle="Un vistazo a tu operación y a los productos que necesitan atención.">
-          <a class="button new-sale" routerLink="/ventas">
-            <span aria-hidden="true">＋</span>Nueva venta
-          </a>
+        <p class="eyebrow">Resumen operativo</p>
+        <app-page-header [title]="'Buen día, ' + firstName()" subtitle="Aquí tienes lo más importante para continuar la operación.">
+          <a class="button new-sale" routerLink="/ventas"><span aria-hidden="true">＋</span>Registrar venta</a>
         </app-page-header>
-        <span class="mobile-demo status-chip status-chip--warning">Datos de ejemplo</span>
       </div>
 
-      <div class="metrics" aria-label="Resumen de la operación">
-        <app-metric-card label="Ventas de hoy" value="S/ 1,248.50" hint="24 ventas registradas" />
-        <app-metric-card label="Productos bajo stock" value="8" hint="3 requieren atención hoy" tone="warning" />
-        <app-metric-card label="Sugerencias pendientes" value="12" hint="Revisión de compras pendiente" tone="info" />
-        <app-metric-card label="Cobertura de pronóstico" value="92 %" hint="46 de 50 productos A/B" tone="analytic" />
-      </div>
+      @if (error()) {
+        <p class="data-state data-state--error" role="alert">{{ error() }}</p>
+      }
 
-      <div class="overview-grid">
-        <article class="panel chart-card">
-          <header>
-            <div><h2>Ventas de las últimas semanas</h2><p>Unidades por semana · datos de ejemplo</p></div>
-            <span>12 semanas</span>
-          </header>
-          <div class="chart-wrap">
-            <svg viewBox="0 0 680 230" role="img" aria-labelledby="sales-chart-title sales-chart-desc" preserveAspectRatio="none">
-              <title id="sales-chart-title">Ventas de las últimas doce semanas</title>
-              <desc id="sales-chart-desc">Las ventas reales y el promedio móvil muestran una tendencia ascendente.</desc>
-              <g class="grid-lines"><line x1="48" y1="20" x2="664" y2="20"/><line x1="48" y1="68" x2="664" y2="68"/><line x1="48" y1="116" x2="664" y2="116"/><line x1="48" y1="164" x2="664" y2="164"/><line x1="48" y1="212" x2="664" y2="212"/></g>
-              <g class="axis-labels"><text x="2" y="24">100</text><text x="10" y="72">75</text><text x="10" y="120">50</text><text x="10" y="168">25</text><text x="18" y="216">0</text></g>
-              <polyline class="forecast-line" points="48,147 104,112 160,138 216,82 272,111 328,65 384,100 440,56 496,87 552,45 608,72 664,34"/>
-              <polyline class="actual-line" points="48,135 104,120 160,126 216,89 272,99 328,72 384,87 440,62 496,74 552,51 608,59 664,40"/>
-            </svg>
-          </div>
-          <div class="chart-labels"><span><i class="actual-dot"></i>Ventas reales</span><span><i class="forecast-dot"></i>Promedio móvil</span></div>
-        </article>
+      @if (loading()) {
+        <p class="data-state">Cargando el resumen de tu negocio…</p>
+      } @else {
+        @if (lowStockCount() > 0) {
+          <aside class="attention-banner" aria-label="Acción recomendada">
+            <span class="attention-icon" aria-hidden="true">!</span>
+            <div>
+              <strong>{{ lowStockCount() }} productos necesitan reposición</strong>
+              <p>Empieza por los productos agotados o por debajo de su stock mínimo.</p>
+            </div>
+            <a class="secondary-button" routerLink="/alertas">Revisar reposición <span aria-hidden="true">→</span></a>
+          </aside>
+        }
 
-        <article class="panel priorities">
-          <header><h2>Prioridades de hoy</h2><p>Sugerencias sujetas a aprobación</p></header>
-          <ul>
-            @for (item of priorities; track item.name) {
-              <li><i [class.danger]="item.danger"></i><div><strong>{{ item.name }}</strong><small>{{ item.detail }}</small></div><span aria-hidden="true">›</span></li>
-            }
-          </ul>
-          <a routerLink="/alertas">Ver todas las alertas <span aria-hidden="true">→</span></a>
-        </article>
-      </div>
-
-      <section class="activity">
-        <div class="section-heading"><h2>Actividad reciente</h2><a routerLink="/reportes">Ver historial</a></div>
-        <div class="table-wrap">
-          <table>
-            <thead><tr><th>Operación</th><th>Producto / documento</th><th>Responsable</th><th>Hora</th><th>Estado</th></tr></thead>
-            <tbody>
-              @for (item of activity; track item.document) {
-                <tr><td>{{ item.operation }}</td><td><strong>{{ item.document }}</strong></td><td>{{ item.owner }}</td><td>{{ item.time }}</td><td><span class="status-chip" [class.status-chip--warning]="item.warning" [class.status-chip--success]="!item.warning">{{ item.status }}</span></td></tr>
-              }
-            </tbody>
-          </table>
+        <div class="metrics" aria-label="Cifras principales">
+          <app-metric-card label="Ventas registradas" [value]="(summary()?.sales ?? 0).toString()" hint="Historial disponible" />
+          <app-metric-card label="Ingresos por ventas" [value]="revenueLabel()" hint="Total acumulado" />
+          <app-metric-card label="Productos por reponer" [value]="lowStockCount().toString()" hint="Requieren una decisión" tone="warning" />
         </div>
-      </section>
 
-      <footer class="page-footer"><span>StockMind · Piloto académico · Datos sintéticos</span><span>Última actualización: 10:42</span></footer>
+        <div class="operations-grid">
+          <article class="panel priorities">
+            <header class="panel-heading">
+              <div><p class="section-kicker">Primero</p><h2>Productos que requieren atención</h2></div>
+              <a routerLink="/alertas">Ver todos</a>
+            </header>
+            @if (!priorities().length) {
+              <p class="empty-copy">No hay alertas de reposición pendientes.</p>
+            } @else {
+              <ol>
+                @for (item of priorities(); track item.id; let position = $index) {
+                  <li>
+                    <span class="priority-number">{{ position + 1 }}</span>
+                    <div class="priority-copy">
+                      <strong>{{ item.name }}</strong>
+                      <small>{{ item.sku }} · Stock actual: {{ item.stock }} · Mínimo: {{ item.minimum }}</small>
+                    </div>
+                    <div class="suggestion"><small>Compra sugerida</small><strong>{{ item.suggested }} un.</strong></div>
+                  </li>
+                }
+              </ol>
+            }
+          </article>
+
+          <aside class="panel quick-actions">
+            <div><p class="section-kicker">Después</p><h2>Acciones frecuentes</h2><p>Continúa con una tarea concreta.</p></div>
+            <nav aria-label="Acciones frecuentes">
+              <a routerLink="/ventas"><span>01</span><div><strong>Registrar una venta</strong><small>Descuenta stock automáticamente</small></div><b aria-hidden="true">→</b></a>
+              <a routerLink="/inventario"><span>02</span><div><strong>Actualizar inventario</strong><small>Entrada, salida o ajuste</small></div><b aria-hidden="true">→</b></a>
+              <a routerLink="/productos"><span>03</span><div><strong>Gestionar productos</strong><small>Precios y niveles mínimos</small></div><b aria-hidden="true">→</b></a>
+            </nav>
+          </aside>
+        </div>
+
+        <section class="recent-sales">
+          <header class="panel-heading"><div><p class="section-kicker">Seguimiento</p><h2>Últimas ventas</h2></div><a routerLink="/ventas">Ver historial</a></header>
+          @if (!recentSales().length) {
+            <p class="data-state">Todavía no hay ventas registradas.</p>
+          } @else {
+            <div class="data-table-wrap">
+              <table class="data-table">
+                <thead><tr><th>Fecha</th><th>Productos vendidos</th><th class="number">Unidades</th><th class="number">Total</th></tr></thead>
+                <tbody>
+                  @for (sale of recentSales(); track sale.id) {
+                    <tr><td>{{ sale.date }}</td><td><strong>{{ sale.description }}</strong></td><td class="number">{{ sale.units }}</td><td class="number"><strong>{{ sale.total }}</strong></td></tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          }
+        </section>
+
+        <footer class="page-footer"><span>Datos de demostración conectados al backend</span><span>Actualizado {{ updatedAt() }}</span></footer>
+      }
     </section>
   `,
   styles: [`
-    .dashboard{gap:24px}.heading-block{position:relative}.mobile-demo{display:none}.new-sale span{font-size:20px;font-weight:400}.metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}.overview-grid{display:grid;grid-template-columns:minmax(0,1.8fr) minmax(320px,1fr);gap:24px}.panel h2,.activity h2{margin:0;color:var(--sm-text);font-size:17px}.panel header p{margin:8px 0 0;color:var(--sm-muted);font-size:12px}.chart-card{min-width:0}.chart-card>header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}.chart-card>header>span{padding:5px 9px;border-radius:6px;color:var(--sm-purple);background:var(--sm-purple-soft);font-size:11px;font-weight:700}.chart-wrap{height:225px;margin-top:14px}.chart-wrap svg{width:100%;height:100%;overflow:visible}.grid-lines line{stroke:var(--sm-border);stroke-width:1}.axis-labels{fill:var(--sm-muted);font-size:10px}.actual-line,.forecast-line{fill:none;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}.actual-line{stroke:var(--sm-primary)}.forecast-line{stroke:var(--sm-purple)}.chart-labels{display:flex;gap:34px;margin-top:8px;color:var(--sm-muted);font-size:11px}.chart-labels span{display:flex;align-items:center;gap:8px}.chart-labels i{width:8px;height:8px;border-radius:50%}.actual-dot{background:var(--sm-primary)}.forecast-dot{background:var(--sm-purple)}.priorities{display:flex;flex-direction:column}.priorities ul{margin:18px 0 0;padding:0;list-style:none}.priorities li{display:flex;align-items:center;gap:14px;padding:16px 2px;border-bottom:1px solid var(--sm-border)}.priorities li>i{width:10px;height:10px;flex:0 0 auto;border-radius:50%;background:var(--sm-warning)}.priorities li>i.danger{background:var(--sm-danger)}.priorities li div{min-width:0;display:grid;gap:7px}.priorities li strong{overflow:hidden;font-size:14px;text-overflow:ellipsis;white-space:nowrap}.priorities li small{color:var(--sm-muted);font-size:12px}.priorities li>span{margin-left:auto;color:var(--sm-muted);font-size:24px}.priorities>a{margin-top:auto;padding-top:18px;color:var(--sm-primary);font-size:12px;font-weight:700}.section-heading{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}.section-heading>a{color:var(--sm-primary);font-size:12px;font-weight:700}.table-wrap{overflow-x:auto;border:1px solid var(--sm-border);border-radius:10px;background:#fff}table{width:100%;min-width:780px;border-collapse:collapse}th,td{height:50px;padding:0 16px;border-bottom:1px solid var(--sm-border);text-align:left;font-size:13px}th{height:46px;color:var(--sm-muted);background:var(--sm-background);font-size:12px}tbody tr:nth-child(even){background:#fbfcfc}tbody tr:last-child td{border-bottom:0}td strong{font-weight:400}.page-footer{display:flex;justify-content:space-between;color:var(--sm-muted);font-size:11px}@media(max-width:1180px){.metrics{grid-template-columns:repeat(2,1fr)}.overview-grid{grid-template-columns:1fr}.priorities>a{margin-top:18px}}@media(max-width:800px){.heading-block .eyebrow,.heading-block .new-sale{display:none}.mobile-demo{display:inline-flex;margin-top:20px}.metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.metrics app-metric-card:first-child{grid-column:1/-1}.metrics app-metric-card:last-child{display:none}.overview-grid{gap:16px}.chart-card{padding:20px}.chart-card>header>span{display:none}.chart-wrap{height:190px}.priorities{padding:20px}.activity{display:none}.page-footer{display:none}}@media(max-width:430px){.dashboard{gap:16px}.metrics{gap:16px}.overview-grid{margin-top:6px}.chart-labels{gap:18px}}
+    .dashboard{gap:22px}.heading-block{position:relative}.new-sale span{font-size:20px;font-weight:400}.attention-banner{display:flex;align-items:center;gap:15px;padding:17px 18px;border:1px solid #efcf91;border-left:4px solid #d69119;border-radius:10px;background:#fff9ec}.attention-icon{width:32px;height:32px;display:grid;place-items:center;flex:0 0 auto;border-radius:50%;color:#fff;background:#b56d00;font-weight:800}.attention-banner div{min-width:0}.attention-banner strong{font-size:14px}.attention-banner p{margin:5px 0 0;color:var(--sm-muted);font-size:12px}.attention-banner>a{margin-left:auto}.secondary-button{min-height:38px;display:inline-flex;align-items:center;gap:8px;padding:0 13px;border:1px solid #d9b66b;border-radius:7px;color:#714500;background:#fff;font-size:12px;font-weight:700;white-space:nowrap}.secondary-button:hover{background:#fff3d9}.metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}.operations-grid{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(310px,.8fr);gap:22px}.panel-heading{display:flex;align-items:center;justify-content:space-between;gap:18px;margin-bottom:15px}.panel-heading h2,.quick-actions h2{margin:0;color:var(--sm-text);font-size:17px}.panel-heading>a{color:var(--sm-primary);font-size:12px;font-weight:700}.section-kicker{margin:0 0 7px;color:var(--sm-muted);font-size:10px;font-weight:800;letter-spacing:.1em;text-transform:uppercase}.priorities ol{margin:0;padding:0;list-style:none}.priorities li{display:grid;grid-template-columns:30px minmax(0,1fr) auto;align-items:center;gap:13px;padding:15px 0;border-top:1px solid var(--sm-border)}.priority-number{width:28px;height:28px;display:grid;place-items:center;border-radius:8px;color:var(--sm-warning);background:var(--sm-warning-soft);font-size:12px;font-weight:800}.priority-copy{display:grid;gap:5px;min-width:0}.priority-copy strong{overflow:hidden;font-size:13px;text-overflow:ellipsis;white-space:nowrap}.priority-copy small,.suggestion small{color:var(--sm-muted);font-size:11px}.suggestion{display:grid;gap:5px;text-align:right}.suggestion strong{font-size:13px}.quick-actions{display:grid;align-content:start;gap:17px}.quick-actions>div>p:last-child{margin:7px 0 0;color:var(--sm-muted);font-size:12px}.quick-actions nav{display:grid}.quick-actions a{display:grid;grid-template-columns:30px minmax(0,1fr) auto;align-items:center;gap:11px;padding:14px 0;border-top:1px solid var(--sm-border)}.quick-actions a>span{color:var(--sm-primary);font-size:11px;font-weight:800}.quick-actions a div{display:grid;gap:4px}.quick-actions a strong{font-size:13px}.quick-actions a small{color:var(--sm-muted);font-size:11px}.quick-actions a b{color:var(--sm-primary)}.empty-copy{margin:0;padding:26px 0;color:var(--sm-muted);font-size:13px}.recent-sales .panel-heading{margin-bottom:12px}.recent-sales td strong{font-weight:600}.page-footer{display:flex;justify-content:space-between;padding-top:2px;color:var(--sm-muted);font-size:11px}@media(max-width:1050px){.operations-grid{grid-template-columns:1fr}.quick-actions nav{grid-template-columns:repeat(3,1fr);gap:12px}.quick-actions a{grid-template-columns:1fr;padding:14px;border:1px solid var(--sm-border);border-radius:9px}.quick-actions a>b{display:none}}@media(max-width:800px){.heading-block .eyebrow,.heading-block .new-sale{display:none}.attention-banner{align-items:flex-start}.attention-banner>a{display:none}.metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.metrics app-metric-card:first-child{grid-column:1/-1}.operations-grid{gap:16px}.priorities,.quick-actions{padding:20px}.quick-actions nav{grid-template-columns:1fr}.quick-actions a{grid-template-columns:30px minmax(0,1fr) auto;padding:14px 0;border-width:1px 0 0;border-radius:0}.quick-actions a>b{display:block}.recent-sales{display:none}.page-footer{display:none}}@media(max-width:430px){.dashboard{gap:16px}.metrics{gap:12px}.attention-banner{padding:15px}.priority-copy small{white-space:normal}.suggestion small{display:none}}
   `],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class DashboardPage {
-  readonly priorities = [
-    { name: 'Broca HSS 6 mm', detail: '24 un. disponibles · ROP 40 un.', danger: false },
-    { name: 'Codo PVC ½ pulg.', detail: '18 un. disponibles · ROP 30 un.', danger: false },
-    { name: 'Guante de trabajo · par', detail: 'Sin stock · Revisar proveedor', danger: true },
-  ];
+  private readonly api = inject(OperationsApiService);
+  private readonly auth = inject(AuthService);
+  readonly summary = signal<ReportSummary | null>(null);
+  readonly products = signal<Product[]>([]);
+  readonly alerts = signal<ReplenishmentAlert[]>([]);
+  readonly sales = signal<Sale[]>([]);
+  readonly loading = signal(true);
+  readonly error = signal('');
+  readonly updatedAt = signal('');
+  readonly firstName = computed(() => this.auth.user()?.name.split(' ')[0] ?? 'Usuario');
+  readonly lowStockCount = computed(() => this.products().filter((item) => item.stockActual <= item.stockMinimo).length);
+  readonly priorities = computed(() => this.alerts().slice(0, 4).map((alert) => {
+    const product = this.products().find((item) => item.id === alert.productId);
+    return {
+      id: alert.id,
+      name: product?.nombre ?? 'Producto sin identificar',
+      sku: product?.sku ?? alert.productId,
+      stock: product?.stockActual ?? 0,
+      minimum: product?.stockMinimo ?? 0,
+      suggested: alert.suggestedQuantity,
+    };
+  }));
+  readonly recentSales = computed(() => [...this.sales()].sort((a, b) => Date.parse(b.createdAtUtc) - Date.parse(a.createdAtUtc)).slice(0, 5).map((sale) => ({
+    id: sale.id,
+    date: new Date(sale.createdAtUtc).toLocaleString('es-PE', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }),
+    description: sale.details.map((detail) => this.products().find((item) => item.id === detail.productId)?.nombre ?? 'Producto').join(', '),
+    units: sale.details.reduce((total, detail) => total + detail.quantity, 0),
+    total: this.money(sale.total),
+  })));
 
-  readonly activity = [
-    { operation: 'Venta', document: 'V-001248 · 4 productos', owner: 'Milton Aquino', time: '10:38', status: 'Registrada', warning: false },
-    { operation: 'Ingreso', document: 'C-000184 · FerreLima', owner: 'Oscar Alvarado', time: '10:24', status: 'Recibido', warning: false },
-    { operation: 'Conteo', document: 'CT-000018 · Almacén principal', owner: 'Isamar Jacobo', time: '09:55', status: 'Por conciliar', warning: true },
-  ];
+  constructor() {
+    forkJoin({ summary: this.api.getSummary(), products: this.api.listProducts(), alerts: this.api.listAlerts(), sales: this.api.listSales() })
+      .pipe(finalize(() => this.loading.set(false)))
+      .subscribe({
+        next: ({ summary, products, alerts, sales }) => {
+          this.summary.set(summary);
+          this.products.set(products);
+          this.alerts.set(alerts);
+          this.sales.set(sales);
+          this.updatedAt.set(new Date().toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' }));
+        },
+        error: () => this.error.set('No se pudo actualizar el resumen desde el backend.'),
+      });
+  }
+
+  revenueLabel(): string { return this.money(this.summary()?.revenue ?? 0); }
+  private money(value: number): string { return new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN' }).format(value); }
 }
