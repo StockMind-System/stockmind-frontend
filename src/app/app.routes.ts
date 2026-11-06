@@ -1,6 +1,5 @@
 import { Routes } from '@angular/router';
 import { authGuard } from './core/guards/auth.guard';
-import { roleGuard } from './core/guards/role.guard';
 import { AuthLayoutComponent } from './core/layouts/auth-layout/auth-layout.component';
 import { MainLayoutComponent } from './core/layouts/main-layout/main-layout.component';
 
@@ -13,11 +12,13 @@ export const routes: Routes = [
       { path: 'productos', loadChildren: () => import('./features/productos/productos.routes').then((m) => m.PRODUCTOS_ROUTES) },
       { path: 'inventario', loadChildren: () => import('./features/inventario/inventario.routes').then((m) => m.INVENTARIO_ROUTES) },
       { path: 'ventas', loadChildren: () => import('./features/ventas/ventas.routes').then((m) => m.VENTAS_ROUTES) },
+      { path: 'compras', loadComponent: () => import('./features/compras/compras.page').then((m) => m.ComprasPage) },
       { path: 'predicciones', loadChildren: () => import('./features/predicciones/predicciones.routes').then((m) => m.PREDICCIONES_ROUTES) },
       { path: 'analitica', loadChildren: () => import('./features/analitica/analitica.routes').then((m) => m.ANALITICA_ROUTES) },
       { path: 'alertas', loadComponent: () => import('./features/alertas/alertas.page').then((m) => m.AlertasPage) },
       { path: 'reportes', loadComponent: () => import('./features/reportes/reportes.page').then((m) => m.ReportesPage) },
-      { path: 'usuarios', canActivate: [roleGuard], data: { roles: ['ADMIN'] }, loadComponent: () => import('./features/usuarios/usuarios.page').then((m) => m.UsuariosPage) },
+      { path: 'usuarios', loadComponent: () => import('./features/usuarios/usuarios.page').then((m) => m.UsuariosPage) },
+      { path: 'roles', loadComponent: () => import('./features/usuarios/roles.page').then((m) => m.RolesPage) },
       { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
     ],
   },

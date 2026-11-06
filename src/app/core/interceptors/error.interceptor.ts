@@ -7,8 +7,12 @@ import { AuthService } from '../services/auth.service';
 export const errorInterceptor: HttpInterceptorFn = (request, next) => {
   const auth = inject(AuthService);
   const router = inject(Router);
+  const hadActiveSession = auth.isAuthenticated();
   return next(request).pipe(catchError((error: HttpErrorResponse) => {
-    if (error.status === 401) { auth.logout(); void router.navigate(['/auth/login']); }
+    if (error.status === 401 && hadActiveSession && !request.url.endsWith('/auth/login')) {
+      auth.expireSession();
+      void router.navigate(['/auth/login'], { queryParams: { reason: 'expired' } });
+    }
     return throwError(() => error);
   }));
 };

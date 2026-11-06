@@ -33,15 +33,22 @@ La configuracion de desarrollo apunta a `http://localhost:8080/api`.
 Con la API C# y MongoDB iniciados, el frontend permite:
 
 - iniciar sesion con las cuentas sinteticas del backend;
+- usar JWT rotativos de 30 minutos, avisar dos minutos antes del cierre por
+  inactividad y renovar el token cuando se detecta interaccion, respetando un
+  maximo absoluto de 12 horas;
 - consultar, crear y desactivar productos;
 - consultar y registrar ventas de un producto;
 - consultar y registrar movimientos de inventario;
+- registrar compras, aprobarlas o rechazarlas y confirmar su recepcion;
 - revisar alertas de reposicion y el resumen de indicadores;
+- calcular ABC, stock de seguridad, ROP y EOQ cuando existen insumos;
+- generar pronosticos semanales y evaluar MAE, RMSE, WAPE y R2;
 - ver en el inicio un resumen actualizado desde la API.
 
 El flujo operativo no necesita que FastAPI este iniciado. Las pantallas de
-pronosticos y analitica quedan como una segunda fase y son las unicas que
-dependen del servicio Python.
+pronosticos y analitica dependen del servicio Python en el puerto `8000`; los
+demas flujos siguen disponibles si analytics esta temporalmente fuera de
+servicio.
 
 Para una demostracion local, inicia primero el backend y MongoDB en el puerto
 `8080`, despues ejecuta `npm start` y abre `http://localhost:4200`. Una cuenta

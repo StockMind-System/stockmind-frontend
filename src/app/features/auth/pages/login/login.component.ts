@@ -51,7 +51,7 @@ import { AuthService } from '../../../../core/services/auth.service';
     </div>
   `,
   styles: [`
-    :host{display:block;width:100%}.welcome-chip{width:max-content;max-width:100%;padding:7px 12px;border-radius:7px;color:var(--sm-primary);background:var(--sm-primary-soft);font-size:12px;font-weight:700}h2{margin:clamp(30px,6vh,56px) 0 0;color:var(--sm-text);font-size:clamp(26px,2.4vw,32px);line-height:1.25}.intro{margin:14px 0 0;color:var(--sm-muted);font-size:15px;line-height:1.5}form{display:grid;margin-top:clamp(36px,7vh,70px)}label{color:var(--sm-muted);font-size:13px;font-weight:700}.password-heading{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:26px}.text-link{color:var(--sm-primary);font-size:13px;font-weight:700;text-align:right}input{width:100%;height:46px;margin-top:10px;padding:0 14px;border:1px solid var(--sm-border);border-radius:8px;color:var(--sm-text);background:#fff}input::placeholder{color:#91a0a6}.password-field{position:relative}.password-field input{padding-right:54px}.visibility-button{position:absolute;right:3px;bottom:3px;width:40px;height:40px;display:grid;place-items:center;padding:0;border:0;border-radius:7px;color:var(--sm-muted);background:transparent}.visibility-button:hover{color:var(--sm-primary);background:var(--sm-primary-soft)}.visibility-button svg{width:21px;height:21px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}.field-error{margin-top:7px;color:var(--sm-danger)}.form-error{margin:16px 0 0;padding:12px;border-radius:8px;color:var(--sm-danger);background:var(--sm-danger-soft);font-size:13px}.submit{width:100%;margin-top:clamp(34px,6vh,66px)}.access-help{margin-top:clamp(30px,5vh,52px);padding-top:clamp(24px,4vh,38px);border-top:1px solid var(--sm-border)}.access-help p{margin:0;color:var(--sm-muted);font-size:13px}.access-help strong{display:block;margin-top:clamp(22px,4vh,42px);color:var(--sm-primary);font-size:12px}@media(max-width:560px){h2{font-size:26px}.password-heading{align-items:flex-start;flex-direction:column;gap:8px}.text-link{text-align:left}.access-help strong{line-height:1.45}}@media(max-height:820px) and (min-width:1101px){h2{margin-top:28px}form{margin-top:32px}.submit{margin-top:30px}.access-help{margin-top:26px;padding-top:22px}.access-help strong{margin-top:20px}}
+    :host{display:block;width:100%}.welcome-chip{width:max-content;max-width:100%;padding:4px 10px;border-radius:var(--sm-radius-small);color:var(--sm-primary);background:var(--sm-primary-soft);font-size:11px;font-weight:600}h2{margin:28px 0 0;color:var(--sm-text);font-size:30px;line-height:40px}.intro{margin:8px 0 0;color:var(--sm-muted);font-size:14px;line-height:22px}form{display:grid;margin-top:32px}label{color:var(--sm-text);font-size:13px;font-weight:500}.password-heading{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:20px}.text-link{color:var(--sm-tertiary);font-size:12px;font-weight:600;text-align:right}input{width:100%;height:40px;margin-top:4px;padding:0 12px;border:1px solid var(--sm-border-strong);border-radius:var(--sm-radius);color:var(--sm-text);background:#fff}input:hover{border-color:#94a3b8}input::placeholder{color:#94a3b8}.password-field{position:relative}.password-field input{padding-right:46px}.visibility-button{position:absolute;right:2px;bottom:2px;width:36px;height:36px;display:grid;place-items:center;padding:0;border:0;border-radius:var(--sm-radius);color:var(--sm-muted);background:transparent}.visibility-button:hover{color:var(--sm-primary);background:var(--sm-primary-soft)}.visibility-button svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}.field-error{margin-top:4px;color:var(--sm-danger);font-size:12px}.form-error{margin:12px 0 0;padding:10px;border:1px solid #fecaca;border-radius:var(--sm-radius);color:var(--sm-danger);background:var(--sm-danger-soft);font-size:12px}.submit{width:100%;margin-top:28px}.access-help{margin-top:28px;padding-top:20px;border-top:1px solid var(--sm-border)}.access-help p{margin:0;color:var(--sm-muted);font-size:12px}.access-help strong{display:block;margin-top:16px;color:var(--sm-primary);font-size:11px}@media(max-width:560px){h2{font-size:24px;line-height:32px}.password-heading{align-items:flex-start;flex-direction:column;gap:4px}.text-link{text-align:left}.access-help strong{line-height:1.45}}@media(max-height:820px) and (min-width:1101px){h2{margin-top:24px}form{margin-top:24px}.submit{margin-top:24px}.access-help{margin-top:20px;padding-top:18px}.access-help strong{margin-top:14px}}
   `],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
@@ -62,7 +62,7 @@ export class LoginComponent {
   private readonly route = inject(ActivatedRoute);
 
   readonly loading = signal(false);
-  readonly error = signal('');
+  readonly error = signal(this.sessionMessage());
   readonly showPassword = signal(false);
   readonly form = this.fb.nonNullable.group({
     email: ['', [Validators.required, Validators.email]],
@@ -81,5 +81,12 @@ export class LoginComponent {
       next: () => void this.router.navigateByUrl(this.route.snapshot.queryParamMap.get('returnUrl') ?? '/dashboard'),
       error: () => this.error.set('No pudimos iniciar sesión. Revisa tus datos e inténtalo nuevamente.'),
     });
+  }
+
+  private sessionMessage(): string {
+    const reason = this.route.snapshot.queryParamMap.get('reason');
+    if (reason === 'inactivity') return 'La sesión se cerró por 30 minutos de inactividad.';
+    if (reason === 'expired') return 'La sesión venció. Inicia sesión nuevamente.';
+    return '';
   }
 }

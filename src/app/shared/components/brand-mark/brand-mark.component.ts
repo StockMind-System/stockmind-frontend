@@ -15,7 +15,7 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
     }
   `,
   styles: [`
-    :host{display:inline-flex;align-items:center;gap:10px}.mark{width:36px;height:36px;display:flex;align-items:flex-end;gap:3px;padding:8px;border-radius:9px;background:var(--sm-primary)}.mark.compact{width:28px;height:28px;padding:6px;border-radius:7px}.mark i{width:4px;border-radius:1px;background:#fff}.mark i:nth-child(1){height:9px}.mark i:nth-child(2){height:15px}.mark i:nth-child(3){height:20px}.compact i:nth-child(1){height:7px}.compact i:nth-child(2){height:11px}.compact i:nth-child(3){height:15px}.copy{display:grid;gap:2px}.copy strong{font-size:21px;line-height:1;color:inherit}.copy small{color:#a8c2c9;font-size:8px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+    :host{display:inline-flex;align-items:center;gap:10px}.mark{width:34px;height:34px;display:flex;align-items:flex-end;gap:3px;padding:7px;border:1px solid rgb(255 255 255 / 12%);border-radius:var(--sm-radius);background:var(--sm-primary)}.mark.compact{width:28px;height:28px;padding:6px;border-radius:var(--sm-radius)}.mark i{width:4px;border-radius:1px 1px 0 0;background:#fff}.mark i:nth-child(1){height:9px}.mark i:nth-child(2){height:15px}.mark i:nth-child(3){height:20px}.compact i:nth-child(1){height:7px}.compact i:nth-child(2){height:11px}.compact i:nth-child(3){height:15px}.copy{display:grid;gap:2px}.copy strong{font-family:"Noto Serif",Georgia,serif;font-size:20px;line-height:1;color:inherit}.copy small{color:#bfcede;font-size:8px;font-weight:600;letter-spacing:.1em;text-transform:uppercase}
   `],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
